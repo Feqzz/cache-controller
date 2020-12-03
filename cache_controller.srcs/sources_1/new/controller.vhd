@@ -32,12 +32,18 @@ use IEEE.NUMERIC_STD.ALL;
 --use UNISIM.VComponents.all;
 
 entity controller is
-    Port ( readOrWrite : in STD_LOGIC;
+    Port ( ptcReadOrWrite : in STD_LOGIC;
            validCpuRequest : in STD_LOGIC;
-           address : in STD_LOGIC_VECTOR (31 downto 0);
+           ptcAddress : in STD_LOGIC_VECTOR (31 downto 0);
            ptcData : in STD_LOGIC_VECTOR (31 downto 0);
            ctpData : out STD_LOGIC_VECTOR (31 downto 0);
            cacheReady : out STD_LOGIC;
+           ctmReadOrWrite : out STD_LOGIC;
+           ctmAddress : out STD_LOGIC_VECTOR (31 downto 0);
+           ctmData : out STD_LOGIC_VECTOR (127 downto 0);
+           mtcData : in STD_LOGIC_VECTOR (127 downto 0);
+           validCacheRequest : out STD_LOGIC;
+           memoryReady : in STD_LOGIC;
            clk : in STD_LOGIC);
 end controller;
 
@@ -45,19 +51,19 @@ architecture Behavioral of controller is
 
 type WORD is array (0 to 3) of STD_LOGIC_VECTOR (31 downto 0);
 
-type BLOCK is record
+type cache_block is record
 	valid_bit : STD_LOGIC;
 	dirty_bit : STD_LOGIC;
 	tag : STD_LOGIC_VECTOR (17 downto 0);
 	data : WORD;
-end record BLOCK;
+end record cache_block;
 
-type CACHE_1024 is array (0 to 1023) of BLOCK;
-variable cache : CACHE_1024 := (others => (
-	valid_bit => '0';
-	dirty_bit => '0';
-	tag => (others => '0');
-	data => (others => (others => '0'));
+type CACHE_1024 is array (0 to 1023) of cache_block;
+signal cache : CACHE_1024 := ( others => (
+	valid_bit => '0',
+	dirty_bit => '0',
+	tag => (others => '0'),
+	data => (others => (others => '0'))
 	));
 
 type FSM is (Idle, Compare_Tag, Allocate, Write_Back);
@@ -76,7 +82,7 @@ begin
 	end if;
 end process;
 
-process (state_reg, valid)
+process (state_reg, validCpuRequest)
 begin
 	state_next <= state_reg;
 	case state_reg is
