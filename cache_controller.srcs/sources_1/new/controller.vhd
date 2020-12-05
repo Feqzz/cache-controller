@@ -66,14 +66,22 @@ signal cache : CACHE_1024 := ( others => (
 	data => (others => (others => '0'))
 	));
 
+-- The Finite State Machine
 type FSM is (Idle, Compare_Tag, Allocate, Write_Back);
 signal state_reg, state_next : FSM;
-signal memoryIsReady : BOOLEAN;
-signal currentBlock : INTEGER;
+
+-- The decoded locations.
 signal currentTag : STD_LOGIC_VECTOR (17 downto 0);
+signal currentBlock : INTEGER;
 signal currentBlockOffset : INTEGER;
 
 begin
+
+-- Forwarding the address from the CPU to the memory.
+-- This can maybe be removed.
+ctmAddress <= ptcAddress;
+
+--state_reg <= state_next;
 
 process (clk)
 begin
@@ -82,18 +90,39 @@ begin
 	end if;
 end process;
 
-process (state_reg, validCpuRequest)
+-- Decodes the address into Tag, Index and block offset.
+process (ptcAddress)
 begin
-	state_next <= state_reg;
+    currentTag <= ptcAddress(31 downto 14);
+    currentBlock <= to_integer(unsigned(ptcAddress(13 downto 4)));
+    currentBlockOffset <= to_integer(unsigned(ptcAddress(3 downto 0)));
+end process;
+
+process (state_reg, validCpuRequest, memoryReady)
+begin
+	--state_next <= state_reg;
 	case state_reg is
-		when Allocate =>
-			-- Read new block from Memory
-			if memoryIsReady then
-				state_next <= Compare_Tag;
+        when Allocate =>
+            -- This needs to be here, or simulation will crash.
+            if state_reg = state_next then
+                -- Signal that we want to read from the Memory and that the signal is valid.
+                ctmReadOrWrite <= '1';
+                validCacheRequest <= '1';
+                if memoryReady = '1' then
+                    -- Read new block from Memory and overwrite the current block.
+                    cache(currentBlock).data(3) <= mtcData(127 downto 96);
+                    cache(currentBlock).data(2) <= mtcData(95 downto 64);
+                    cache(currentBlock).data(1) <= mtcData(63 downto 32);
+                    cache(currentBlock).data(0) <= mtcData(31 downto 0);
+                    -- We are done reading, so we remove the valid request signal. 
+                    validCacheRequest <= '0';
+                    -- Done!			         
+                    state_next <= Compare_Tag;
+                end if;
 			end if;
 		when Compare_Tag =>
 			if cache(currentBlock).valid_bit = '1' and currentTag = cache(currentBlock).tag then
-				if readOrWrite = '1' then
+				if ptcReadOrWrite = '1' then
 					ctpData <= cache(currentBlock).data(currentBlockOffset);
 					cache(currentBlock).dirty_bit <= '0';
 				else
@@ -112,15 +141,25 @@ begin
 		when Idle =>
 			if validCpuRequest = '1' then
 				state_next <= Compare_Tag;
+			else
+                cacheReady <= '0';
 			end if;
 		when Write_Back =>
-			if memoryIsReady then
-				-- Write Old Block to Memory
+            -- Signal that we want to write to the Memory and that the signal is valid.
+            ctmReadOrWrite <= '0';
+            -- Update the cache-to-memory databus.
+            ctmData(127 downto 96) <= cache(currentBlock).data(3);
+            ctmData(95 downto 64) <= cache(currentBlock).data(2);
+            ctmData(63 downto 32) <= cache(currentBlock).data(1);
+            ctmData(31 downto 0) <= cache(currentBlock).data(0);
+            -- The databus is now updated, and we can signal that we have done our part.
+            validCacheRequest <= '1';
+			if memoryReady = '1' then
+                -- The request has been fulfilled! We can now toggle off the valid signal.
+                validCacheRequest <= '0';
 				state_next <= Allocate;
-			end if;
-				
+			end if;		
 	end case;
-
 end process;
 
 end Behavioral;
