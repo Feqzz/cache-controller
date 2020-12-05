@@ -77,11 +77,11 @@ signal currentBlockOffset : INTEGER;
 
 begin
 
--- Forwarding the address from the CPU to the memory.
--- This can maybe be removed.
+	-- Forwarding the address from the CPU to the memory.
+	-- This can maybe be removed.
 	ctmAddress <= ptcAddress;
 
---state_reg <= state_next;
+	--state_reg <= state_next;
 
 	process (clk)
 	begin
@@ -90,7 +90,7 @@ begin
 		end if;
 	end process;
 
--- Decodes the address into Tag, Index and block offset.
+	-- Decodes the address into Tag, Index and block offset.
 	process (ptcAddress)
 	begin
 		currentTag <= ptcAddress(31 downto 14);
@@ -100,26 +100,26 @@ begin
 
 	process (state_reg, validCpuRequest, memoryReady)
 	begin
-	--state_next <= state_reg;
+		--state_next <= state_reg;
 		case state_reg is
 			when Allocate =>
-			-- This needs to be here, or simulation will crash.
+				-- This needs to be here, or simulation will crash.
 				if state_reg = state_next then
-				-- Signal that we want to read from the Memory and that the signal is valid.
+					-- Signal that we want to read from the Memory and that the signal is valid.
 					ctmReadOrWrite <= '1';
 					validCacheRequest <= '1';
 					if memoryReady = '1' then
-					-- Read new block from Memory and overwrite the current block.
+						-- Read new block from Memory and overwrite the current block.
 						cache(currentBlock).data(3) <= mtcData(127 downto 96);
 						cache(currentBlock).data(2) <= mtcData(95 downto 64);
 						cache(currentBlock).data(1) <= mtcData(63 downto 32);
 						cache(currentBlock).data(0) <= mtcData(31 downto 0);
-					-- We are done reading, so we remove the valid request signal. 
+						-- We are done reading, so we remove the valid request signal. 
 						validCacheRequest <= '0';
-                    -- We update the block to valid and its current tag.
+						-- We update the block to valid and its current tag.
 						cache(currentBlock).valid_bit <= '1';
-                        cache(currentBlock).tag <= currentTag;
-					-- Done!			         
+						cache(currentBlock).tag <= currentTag;
+						-- Done!			         
 						state_next <= Compare_Tag;
 					end if;
 				end if;
@@ -130,11 +130,11 @@ begin
 						cache(currentBlock).dirty_bit <= '0';
 					else
 						cache(currentBlock).data(currentBlockOffset) <= ptcData;
-                    -- The new data is now stored in the cache, but not in the memory. Hence the dirty bit.
+						-- The new data is now stored in the cache, but not in the memory. Hence the dirty bit.
 						cache(currentBlock).dirty_bit <= '1';
-                    -- As there now exists data on this block, the valid bit and tag is updated.
+						-- As there now exists data on this block, the valid bit and tag is updated.
 						cache(currentBlock).valid_bit <= '1';
-                        cache(currentBlock).tag <= currentTag;
+						cache(currentBlock).tag <= currentTag;
 					end if;
 					cacheReady <= '1';
 					state_next <= Idle;
@@ -150,17 +150,17 @@ begin
 					cacheReady <= '0';
 				end if;
 			when Write_Back =>
-			-- Signal that we want to write to the Memory and that the signal is valid.
+				-- Signal that we want to write to the Memory and that the signal is valid.
 				ctmReadOrWrite <= '0';
-			-- Update the cache-to-memory databus.
+				-- Update the cache-to-memory databus.
 				ctmData(127 downto 96) <= cache(currentBlock).data(3);
 				ctmData(95 downto 64) <= cache(currentBlock).data(2);
 				ctmData(63 downto 32) <= cache(currentBlock).data(1);
 				ctmData(31 downto 0) <= cache(currentBlock).data(0);
-			-- The databus is now updated, and we can signal that we have done our part.
+				-- The databus is now updated, and we can signal that we have done our part.
 				validCacheRequest <= '1';
 				if memoryReady = '1' then
-				-- The request has been fulfilled! We can now toggle off the valid signal.
+					-- The request has been fulfilled! We can now toggle off the valid signal.
 					validCacheRequest <= '0';
 					state_next <= Allocate;
 				end if;		
