@@ -32,44 +32,44 @@ use IEEE.NUMERIC_STD.ALL;
 --use UNISIM.VComponents.all;
 
 entity memory is
-    Port ( readOrWrite : in STD_LOGIC;
-           validSignal : in STD_LOGIC;
-           clk : in STD_LOGIC;
-           address : in STD_LOGIC_VECTOR (31 downto 0);
-           ctmData : in STD_LOGIC_VECTOR (127 downto 0);
-           mtcData : out STD_LOGIC_VECTOR (127 downto 0);
-           memoryReady : out STD_LOGIC);
+	Port ( readOrWrite : in STD_LOGIC;
+		   validSignal : in STD_LOGIC;
+		   clk : in STD_LOGIC;
+		   address : in STD_LOGIC_VECTOR (31 downto 0);
+		   ctmData : in STD_LOGIC_VECTOR (127 downto 0);
+		   mtcData : out STD_LOGIC_VECTOR (127 downto 0);
+		   memoryReady : out STD_LOGIC);
 end memory;
 
 architecture Behavioral of memory is
 
-type MEM is array (0 to 15) of STD_LOGIC_VECTOR (127 downto 0);
+	type MEM is array (0 to 15) of STD_LOGIC_VECTOR (127 downto 0);
 
-signal memory_array : MEM := (others => (others => '1'));
-signal currentBlock : INTEGER;
+	signal memory_array : MEM := (others => (others => '1'));
+	signal currentBlock : INTEGER;
 
 begin
 
 -- Updates the current addresses
-process (address)
-begin
-    currentBlock <= to_integer(unsigned(address (31 downto 3))) mod 16;
-end process;
+	process (address)
+	begin
+		currentBlock <= to_integer(unsigned(address (31 downto 3))) mod 16;
+	end process;
 
 -- Writes or Reads to/from the Memory.
-process (readOrWrite, validSignal)
-begin
-    if validSignal = '1' then
-        if readOrWrite = '1' then
-            mtcData <= memory_array(currentBlock);
-            memoryReady <= '1';
-        else
-            memory_array(currentBlock) <= ctmData;
-            memoryReady <= '1';
-        end if;
-    else
-        memoryReady <= '0';
-    end if;
-end process;
+	process (readOrWrite, validSignal)
+	begin
+		if validSignal = '1' then
+			if readOrWrite = '1' then
+				mtcData <= memory_array(currentBlock);
+				memoryReady <= '1';
+			else
+				memory_array(currentBlock) <= ctmData;
+				memoryReady <= '1';
+			end if;
+		else
+			memoryReady <= '0';
+		end if;
+	end process;
 
 end Behavioral;

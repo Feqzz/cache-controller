@@ -116,6 +116,9 @@ begin
 						cache(currentBlock).data(0) <= mtcData(31 downto 0);
 					-- We are done reading, so we remove the valid request signal. 
 						validCacheRequest <= '0';
+                    -- We update the block to valid and its current tag.
+						cache(currentBlock).valid_bit <= '1';
+                        cache(currentBlock).tag <= currentTag;
 					-- Done!			         
 						state_next <= Compare_Tag;
 					end if;
@@ -127,7 +130,11 @@ begin
 						cache(currentBlock).dirty_bit <= '0';
 					else
 						cache(currentBlock).data(currentBlockOffset) <= ptcData;
+                    -- The new data is now stored in the cache, but not in the memory. Hence the dirty bit.
 						cache(currentBlock).dirty_bit <= '1';
+                    -- As there now exists data on this block, the valid bit and tag is updated.
+						cache(currentBlock).valid_bit <= '1';
+                        cache(currentBlock).tag <= currentTag;
 					end if;
 					cacheReady <= '1';
 					state_next <= Idle;
@@ -136,8 +143,6 @@ begin
 				else
 					state_next <= Allocate;
 				end if;
-				cache(currentBlock).valid_bit <= '1';
-				cache(currentBlock).tag <= currentTag;
 			when Idle =>
 				if validCpuRequest = '1' then
 					state_next <= Compare_Tag;
